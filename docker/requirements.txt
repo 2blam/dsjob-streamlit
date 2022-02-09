@@ -1,0 +1,5 @@
+pymongo==4.0.1
+plotly==5.5.0
+setuptools
+wheel
+spacy
