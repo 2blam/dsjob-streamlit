@@ -1,5 +1,5 @@
 import streamlit as st
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timedelta
 import pymongo
 import pandas as pd
 import plotly.express as px
@@ -151,41 +151,44 @@ def get_unique_company_count(from_date, to_date):
 	
 def tidy_address(lst):
 	r_loc = []
+	valid_on_loc = ['Toronto, ON', 
+			'Mississauga, ON', 
+			'Etobicoke, ON', 
+			'Brampton, ON', 
+			'Scarborough, ON', 
+			'Guelph, ON', 
+			'London, ON', 
+			'Canada', 
+			'Thornhill, ON', 
+			'Ontario', 
+			'North York, ON', 
+			'Greater Toronto Area, ON', 
+			'Don Mills, ON', 
+			'Concord, ON', 
+			'Ottawa, ON', 
+			'Markham, ON',
+			'Vaughan, ON']
 	for loc in lst:
-		if loc is None:
-			r_loc.append("Unknown")
-		# with ON keyword
-		elif 'ON' in loc:
-			if (loc.count(",")) >= 2:
-				tmp = loc.split(",")[-2:]
-				r_loc.append(",".join(tmp).strip())
-			elif 'Toronto, ON' in loc:
-				r_loc.append('Toronto, ON')
-			elif 'Brampton' in loc:
-				r_loc.append('Brampton, ON')
-			elif 'Concord' in loc:
-				r_loc.append('Concord, ON')
-			elif 'Greater Toronto Area' in loc:
-				r_loc.append('Greater Toronto Area, ON')
-			elif 'Markham' in loc:
-				r_loc.append('Markham, ON')
-			elif 'Mississauga' in loc:
-				r_loc.append('Mississauga, ON')
-			elif 'North York' in loc:
-				r_loc.append('North York, ON')
-			elif 'Thornhill' in loc:
-				r_loc.append('Thornhill, ON')
-			else:
-				r_loc.append(loc)
+		if loc not in valid_on_loc:
+			r_loc.append("Others")
 		else:
-			# remote
-			if "remote" in loc.lower():
-				r_loc.append("Remote")
-			elif "Ontario" in loc:
-				r_loc.append("Toronto, ON")
-			else:
-				r_loc.append("Others")
+			r_loc.append(loc)
 	return r_loc
+
+def get_remote_percentage(from_date, to_date):
+	db = client.dsjob
+	
+	query = {"post_date": {
+                                                        "$gte": datetime.combine(from_date, time.min),
+                                                        "$lte": datetime.combine(to_date, time.min) #cast to 00:00:00
+                                                        }
+                                        }
+	r = db.jobad.find(query, {"remote_work_type"})
+	
+	r = list(r)
+	lst = [e['remote_work_type'] for e in r] #None, Temporarily Remote, Remote, Hybrid remote
+	num_of_remote_job = len(lst) - (lst.count(None))
+	return (round(num_of_remote_job / len(lst) * 100))
 
 def get_unique_location(from_date, to_date):
 	db = client.dsjob
@@ -202,7 +205,6 @@ def get_unique_location(from_date, to_date):
 	# tidy
 	lst = [e['location'] for e in r]
 	lst = tidy_address(lst)
-
 	return len(set(lst))
 	
 
@@ -228,7 +230,7 @@ def get_job_count(from_date, to_date):
 # side bar
 date_range = []
 with st.sidebar:
-	min_date = datetime(2022,1,1,0,0)
+	min_date = date.today() - timedelta(days=30)
 	max_date = date.today()
 	date_from = st.date_input("Date From", min_date)
 	date_to = st.date_input("Date To", max_date)
@@ -243,7 +245,7 @@ with st.sidebar:
 # main
 st.title("Data Science Related Jobs in Ontario, Toronto")
 if len(date_range) == 2:
-	col1, col2, col3 = st.columns(3)	
+	col1, col2, col3, col4 = st.columns(4)	
 	
 	job_count = get_job_count(date_range[0], date_range[1])
 
@@ -254,6 +256,8 @@ if len(date_range) == 2:
 
 	location_count = get_unique_location(date_range[0], date_range[1])
 	col3.metric("No. of Unique Location", location_count)
+
+	col4.metric("Remote Job Percentage", str(get_remote_percentage(date_range[0], date_range[1])) + " %")
 
 	# plot time series chart
 	fig_job_ad_ts = get_fig_job_ad_ts(date_range[0], date_range[1])
