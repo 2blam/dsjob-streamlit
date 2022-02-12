@@ -4,10 +4,14 @@ import pymongo
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-
+import streamlit.components.v1 as components
 
 # use wide screen
 st.set_page_config(layout="wide")
+
+# js file
+with open("gtag.js") as f:
+	js = f.read()
 
 # Initialize connection.
 client = pymongo.MongoClient(**st.secrets["mongo"])
@@ -277,4 +281,5 @@ if len(date_range) == 2:
 	pass
 
 
-
+# add google analytics
+components.html(js, height=1, scrolling=False)
