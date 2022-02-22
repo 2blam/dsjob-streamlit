@@ -5,16 +5,40 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit.components.v1 as components
+import pathlib
+import shutil
+from bs4 import BeautifulSoup
 
 # use wide screen
 st.set_page_config(layout="wide")
 
-# js file
+# Reference - https://github.com/streamlit/streamlit/issues/969
+def inject_ga(js):
+    GA_ID = "google_analytics"
+    GA_JS = js
+
+    index_path = pathlib.Path(st.__file__).parent / "static" / "index.html"
+    soup = BeautifulSoup(index_path.read_text(), features="lxml")
+    if not soup.find(id=GA_ID):  # if cannot find tag
+        bck_index = index_path.with_suffix('.bck')
+        if bck_index.exists():
+            shutil.copy(bck_index, index_path)  # recover from backup
+        else:
+            shutil.copy(index_path, bck_index)  # keep a backup
+        html = str(soup)
+        new_html = html.replace('<head>', '<head>\n' + GA_JS)
+        index_path.write_text(new_html)
+
+# inject google analytics
+
+# js - google analytics
 with open("gtag.js") as f:
-	js = f.read()
+    js = f.read()
+inject_ga(js)
 
 # Initialize connection.
 client = pymongo.MongoClient(**st.secrets["mongo"])
+
 def get_fig_location(from_date, to_date):
 	db = client.dsjob
 
@@ -278,8 +302,4 @@ if len(date_range) == 2:
 
 	fig_location = get_fig_location(date_range[0], date_range[1])
 	col2.plotly_chart(fig_location, use_container_width=True)
-	pass
 
-
-# add google analytics
-components.html(js, height=1, scrolling=False)
